@@ -81,12 +81,14 @@ public class ApiApp extends Application {
     }
 
     /**
-     * Represents a recipe from Edamam
+     * Represents a recipe from Edamam.
      */
     private static class Recipe {
         String label;
         String image;
         Ingredient[] ingredients;
+        double calories;
+        double totalTime;
     }
 
     /**
@@ -98,6 +100,62 @@ public class ApiApp extends Application {
         String measure;
     }
 
+    /**
+     * Represents the Kroger Access Token.
+     */
+    private static class KrogerAccess {
+        @SerializedName("access_token") String token;
+    }
+
+    /**
+     * Represents a list of Kroger locations.
+     */
+    private static class LocationList {
+        Location[] data;
+    }
+
+    /**
+     * Represents a Kroger location.
+     */
+    private static class Location {
+        LocationData data;
+    }
+
+    /**
+     * Represents data of a Kroger location.
+     */
+    private static class LocationData {
+        String locationId;
+        String name;
+    }
+
+    /**
+     * Represents a list of products from Kroger.
+     */
+    private static class ProductList {
+        Product[] data;
+    }
+
+    /**
+     * Represents a product from Kroger.
+     */
+    private static class Product {
+        ProductData data;
+    }
+
+    /**
+     * Represents data of a product.
+     */
+    private static class ProductData {
+        String description;
+        String price;
+    }
+
+    String token;
+    Location krogerLoc;
+    String locName;
+    String locId;
+
     Stage stage;
 
     Scene startScene;
@@ -108,7 +166,8 @@ public class ApiApp extends Application {
     Button searchButton;
     ScrollPane startScroll;
     VBox scrollVBox;
-    ImageView[] imageArray;
+    ImageView[] ivArray;
+    Image[] imageArray;
     BorderPane[] bpArray;
     TextFlow[] descArray;
     Button[] recipeButton;
@@ -123,8 +182,8 @@ public class ApiApp extends Application {
     Label setLocTitle;
     HBox setLocPane;
     Label setLocLabel;
-    TextField cityField;
-    String city;
+    TextField zipField;
+    String zip;
     Button setButton;
 
     Scene recipeScene;
@@ -159,6 +218,10 @@ public class ApiApp extends Application {
      * constructor is executed in Step 2 of the JavaFX Application Life-Cycle.
      */
     public ApiApp() {
+        token = null;
+        locName = "Kroger Landen";
+        locId = "01400376"
+
         stage = null;
 
         startRoot = new VBox();
@@ -169,7 +232,8 @@ public class ApiApp extends Application {
         searchButton = new Button("Search");
         scrollVBox = new VBox();
         startScroll = new ScrollPane(scrollVBox);
-        imageArray = new ImageView[20];
+        ivArray = new ImageView[20];
+        imageArray = new Image[20];
         bpArray = new BorderPane[20];
         descArray = new TextFlow[20];
         recipeButton = new Button[20];
@@ -183,10 +247,10 @@ public class ApiApp extends Application {
         setLocBack = new Button("Back");
         setLocTitle = new Label("Set Your Location");
         setLocPane = new HBox(4);
-        setLocLabel = new Label("City:");
-        cityField = new TextField("Atlanta");
-        city = "Atlanta";
-        setButton = new Button("Set City");
+        setLocLabel = new Label("Zip Code:");
+        cityField = new TextField("30609");
+        city = "30609";
+        setButton = new Button("Set Zip Code");
 
         recipeRoot = new VBox();
         recipeScene = new Scene(recipeRoot, 800, 600);
@@ -257,38 +321,40 @@ public class ApiApp extends Application {
      * Initializes the start scene.
      */
     public void initStart() {
+        retrieveToken();
         HBox.setHgrow(this.searchField, Priority.ALWAYS);
         progressBar.setMaxWidth(Double.MAX_VALUE);
         progressPane.setAlignment(Pos.CENTER_RIGHT);
         HBox.setHgrow(this.progressBar, Priority.ALWAYS);
         searchPane.setAlignment(Pos.CENTER);
         scrollVBox.setMaxWidth(startScene.getWidth());
+        recipeImage.setFitHeight(200);
+        recipeImage.setFitWidth(200);
         for (int i = 0 ; i < bpArray.length; i++) {
-            imageArray[i] = new ImageView();
-            imageArray[i].setFitHeight(100);
-            imageArray[i].setFitWidth(100);
-            Image image = new Image("file:resources/default.png");
-            imageArray[i].setImage(image);
+            ivArray[i] = new ImageView();
+            ivArray[i].setFitHeight(100);
+            ivArray[i].setFitWidth(100);
+            imageArray[i] = new Image("file:resources/default.png");
+            ivArray[i].setImage(imageArray[i]);
             descArray[i] = new TextFlow();
             bpArray[i] = new BorderPane();
             recipeButton[i] = new Button("View\nRecipe");
+            int temp = i;
             EventHandler<ActionEvent> recipeHandler = (ActionEvent e) -> {
                 Text t1 = new Text("Recipe for " + recipeName);
                 recipeFlow.getChildren().clear();
                 recipeFlow.getChildren().add(t1);
                 for (int j = 0; j < ingrList.length; j++) {
-                    ingrNameList[j] = "Chickendsakdlajsdkl ajdklasjkld asjkld jaksl djalks";
+                    ingrNameList[j] = "Chicken";
                     ingrList[j].setText(ingrNameList[j]);
                 }
-                recipeImage.setImage(image);
-                recipeImage.setFitHeight(200);
-                recipeImage.setFitWidth(200);
+                recipeImage.setImage(imageArray[temp]);
                 instrFlow.getChildren().clear();
-                instrFlow.getChildren().add(new Text("dasjdaskldjaskdjaskdjklsa dsakldj askl djaskl djasl djkalsd jksaldj aslkd jslkadjsakl"));
+                instrFlow.getChildren().add(new Text(""));
                 stage.setScene(recipeScene);
             };
             recipeButton[i].setOnAction(recipeHandler);
-            bpArray[i].setLeft(imageArray[i]);
+            bpArray[i].setLeft(ivArray[i]);
             bpArray[i].setCenter(descArray[i]);
             bpArray[i].setRight(recipeButton[i]);
             Separator sep = new Separator();
@@ -298,7 +364,7 @@ public class ApiApp extends Application {
 
         EventHandler<ActionEvent> setLocHandler = (ActionEvent e) -> {
             stage.setScene(setLocScene);
-            cityField.setText(city);
+            zipField.setText(zip);
         };
         setLocButton.setOnAction(setLocHandler);
         EventHandler<ActionEvent> searchHandler = (ActionEvent e) -> {
@@ -323,7 +389,10 @@ public class ApiApp extends Application {
             stage.setScene(startScene);
         };
         EventHandler<ActionEvent> setButtonHandler = (ActionEvent e) -> {
-            city = cityField.getText();
+            zip = zipField.getText();
+            getNearestKroger();
+            locName = krogerLoc.name;
+            locId = krogerLoc.id;
         };
         setLocBack.setOnAction(setLocBackHandler);
         setButton.setOnAction(setButtonHandler);
@@ -339,7 +408,7 @@ public class ApiApp extends Application {
         HBox.setHgrow(r4, Priority.ALWAYS);
 
         setLocBackPane.getChildren().addAll(setLocBack, r3, setLocTitle, r4);
-        setLocPane.getChildren().addAll(setLocLabel, cityField, setButton);
+        setLocPane.getChildren().addAll(setLocLabel, zipField, setButton);
         setLocRoot.getChildren().addAll(setLocBackPane, r1, setLocPane, r2);
     }
 
@@ -354,8 +423,7 @@ public class ApiApp extends Application {
         recipeBack.setOnAction(recipeBackHandler);
 
         recipePane.setPrefHeight(recipeScene.getHeight());
-        recipeScroll.setMaxWidth(200);
-        recipeScrollPane.setMaxWidth(200);
+        instrFlow.setMaxWidth(200);
 
         VBox.setVgrow(recipeScroll, Priority.ALWAYS);
 
@@ -372,16 +440,16 @@ public class ApiApp extends Application {
             ingrList[i].setWrapText(true);
             EventHandler<ActionEvent> ingrListHandler = (ActionEvent e) -> {
                 ingrFlow.getChildren().clear();
-                ingrFlow.getChildren().add(new Text("Chicken" + " at Kroger in " + city));
+                ingrFlow.getChildren().add(new Text("Chicken" + " at Kroger in " + locName));
                 stage.setScene(ingrScene);
             };
             ingrList[i].setOnAction(ingrListHandler);
             recipeScrollPane.getChildren().add(ingrList[i]);
         }
 
-        ingrPane.getChildren().add(recipeScroll);
+        ingrPane.getChildren().add(instrFlow);
         recipeBackPane.getChildren().addAll(recipeBack, r1, recipeFlow, r2);
-        recipePane.setCenter(instrFlow);
+        recipePane.setCenter(recipeScroll);
         recipePane.setLeft(ingrPane);
         recipeRoot.getChildren().addAll(recipeBackPane, recipePane);
     }
@@ -411,7 +479,7 @@ public class ApiApp extends Application {
             Image image = new Image("file:resources/default.png");
             ingrImages[i].setImage(image);
             ingrNames[i].getChildren().clear();
-            ingrNames[i].getChildren().add(new Text("Chickendaksjdlsadjlkasdkaskldjsad jasl djaskld jlsa"));
+            ingrNames[i].getChildren().add(new Text("Chicken"));
             ingrPrices[i].getChildren().clear();
             ingrPrices[i].getChildren().add(new Text("$100.00"));
             ingrPaneList[i].setLeft(ingrImages[i]);
@@ -454,7 +522,7 @@ public class ApiApp extends Application {
                             temp.getChildren().add(new Text(name));
                         });
                         Image image = new Image(recipeArr[i].image);
-                        imageArray[i].setImage(image);
+                        ivArray[i].setImage(image);
                         Platform.runLater(() -> progressBar.setProgress(progressBar.getProgress() +
                             (1.0 / edamamResponse.hits.length)));
                     }
@@ -507,6 +575,88 @@ public class ApiApp extends Application {
             alertError(e);
         } // try
         return edamamResponse;
+    }
+
+    /**
+     * Retrieves data of the search from Edamam.
+     *
+     * @return the data from Edamam in a GSON format
+     */
+    private Product[] retrieveKroger() {
+        Product[] products = null;
+        try (FileInputStream configFileStream = new FileInputStream(CONFIG_PATH)) {
+            Properties config = new Properties();
+            config.load(configFileStream);
+            // form URI
+            String term = URLEncoder.encode("Chicken", StandardCharsets.UTF_8);//ChangeJSKLAJSKLA
+            String loc = URLEncoder.encode(locId, StandardCharsets.UTF_8);
+            String query = String.format("?filter.term=%s&filter.locationId=%s", term, loc);
+            URI apiUri = URI.create("https://api.kroger.com/v1/products" + query);
+            // build request
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .build();
+            HttpResponse<String> response = HTTP_CLIENT
+                .send(request, BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new IOException(response.toString());
+            } // if
+            String jsonString = response.body();
+            products = GSON
+                .fromJson(jsonString, ProductList.class).data;
+        } catch (IOException | InterruptedException e) {
+            alertError(e);
+        } // try
+        return products;
+    }
+
+    private void getNearestKroger() {
+        String nearZip = URLEncoder.encode(zip, StandardCharsets.UTF_8);
+        String query = String.format("?filter.zipCode.near=%s&filter.limit", nearZip, "1");
+        URI apiUri = URI.create("https://api.kroger.com/v1/locations" + query);
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(apiUri)
+            .POST(BodyPublishers.ofString(post))
+            .header("Accept", "application/json")
+            .header("Authorization", "Bearer " + token)
+            .build();
+            HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(uri))
+            .build();
+            HttpResponse<String> response = HTTP_CLIENT
+            .send(request, BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                throw new IOException(response.toString());
+            } // if
+            String jsonString = response.body();
+            krogerLoc = GSON
+                .fromJson(jsonString, LocationList.class).data[0];
+            }
+    }
+
+    private void retrieveToken() {
+        if (token == null) {
+            URI apiUri = URI.create("https://api.kroger.com/v1/connect/oauth2/token");
+            String requestBody = "grant_type=client_credentials&scope=product.compact";
+            String post = URLEncoder.encode(account, StandardCharsets.UTF_8);
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(apiUri)
+                .POST(BodyPublishers.ofString(post))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("Authorization", "Basic " + config.getProperty("project.krogerKey")
+                .build();
+                HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(uri))
+                .build();
+                HttpResponse<String> response = HTTP_CLIENT
+                .send(request, BodyHandlers.ofString());
+                if (response.statusCode() != 200) {
+                    throw new IOException(response.toString());
+                } // if
+                String jsonString = response.body();
+                token = GSON
+                .fromJson(jsonString, KrogerAccess.class).token;
+                }
     }
 
     /**
