@@ -166,6 +166,8 @@ public class ApiApp extends Application {
     Location krogerLoc;
     String locName;
     String locId;
+    String[][] foodArr;
+    String[] foodArr2;
 
     Stage stage;
 
@@ -233,6 +235,8 @@ public class ApiApp extends Application {
         token = null;
         locName = "Kroger Landen";
         locId = "01400376";
+        foodArr = new String[20][20];
+        foodArr2 = new String[20];
 
         stage = null;
 
@@ -355,7 +359,7 @@ public class ApiApp extends Application {
             descArray[i] = new TextFlow();
             bpArray[i] = new BorderPane();
             recipeButton[i] = new Button("View\nRecipe");
-            recipeButton[i].setOnAction(initButton(i));
+            recipeButton[i].setOnAction(initRecipeButton(i));
             bpArray[i].setLeft(ivArray[i]);
             bpArray[i].setCenter(descArray[i]);
             bpArray[i].setRight(recipeButton[i]);
@@ -442,14 +446,8 @@ public class ApiApp extends Application {
             }
             ingrList[i] = new Hyperlink();
             ingrList[i].setWrapText(true);
-            EventHandler<ActionEvent> ingrListHandler = (ActionEvent e) -> {
-                ingrFlow.getChildren().clear();
-                currIngr = ingrList[0].getText();
-                ingrFlow.getChildren().add(new Text(currIngr + " at " + locName));
-                updateIngr();
-                stage.setScene(ingrScene);
-            };
-            ingrList[i].setOnAction(ingrListHandler);
+
+            ingrList[i].setOnAction(initIngrButton(i));
             recipeScrollPane.getChildren().add(ingrList[i]);
         }
 
@@ -534,10 +532,15 @@ public class ApiApp extends Application {
                                 Double q = x[j].quantity;
                                 String m = " " + x[j].measure + " of ";
                                 String food = x[j].food;
+                                foodArr[i][j] = food;
+                                String str = "";
                                 if (m.equals(" <unit> of ")) {
-                                    m = " ";
+                                    str = String.format("%s %s.", q, food);
+                                } else if (x[j].quantity == 0) {
+                                    str = food;
+                                } else {
+                                    str = String.format("%s%s%s.", q, m, food);
                                 }
-                                String str = String.format("%s%s%s.", q, m, food);
                                 ingrNameList[i][j] = str;
                             } else {
                                 ingrNameList[i][j] = "";
@@ -719,7 +722,7 @@ public class ApiApp extends Application {
      * @param i the button to initialize
      * @return an event handler
      */
-    private EventHandler<ActionEvent> initButton(int i) {
+    private EventHandler<ActionEvent> initRecipeButton(int i) {
         EventHandler<ActionEvent> recipeHandler = (ActionEvent e) -> {
             for (Node node : descArray[i].getChildren()) {
                 recipeName = ((Text)node).getText();
@@ -729,6 +732,7 @@ public class ApiApp extends Application {
             recipeFlow.getChildren().add(t1);
             for (int j = 0; j < ingrList.length; j++) {
                 ingrList[j].setText(ingrNameList[i][j]);
+                foodArr2[j] = foodArr[i][j];
             }
             recipeImage.setImage(imageArray[i]);
             instrFlow.getChildren().clear();
@@ -736,6 +740,23 @@ public class ApiApp extends Application {
             stage.setScene(recipeScene);
         };
         return recipeHandler;
+    }
+
+    /**
+     * Returns the event handler for the ingredient hyperlinks.
+     *
+     * @param i the button to initialize
+     * @return an event handler
+     */
+    private EventHandler<ActionEvent> initIngrButton(int i) {
+        EventHandler<ActionEvent> ingrListHandler = (ActionEvent e) -> {
+            ingrFlow.getChildren().clear();
+            currIngr = foodArr2[i].substring(0, 1).toUpperCase() + foodArr2[i].substring(1);
+            ingrFlow.getChildren().add(new Text(currIngr + " at " + locName));
+            updateIngr();
+            stage.setScene(ingrScene);
+        };
+        return ingrListHandler;
     }
 
     /**
