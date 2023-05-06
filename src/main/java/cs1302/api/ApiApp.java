@@ -11,9 +11,11 @@ import java.net.URI;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.util.Properties;
+import java.net.http.HttpRequest.BodyPublishers;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.annotations.SerializedName;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -44,6 +46,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.TextArea;
+import javafx.scene.Node;
 
 /**
  * REPLACE WITH NON-SHOUTING DESCRIPTION OF YOUR APP.
@@ -118,13 +121,6 @@ public class ApiApp extends Application {
      * Represents a Kroger location.
      */
     private static class Location {
-        LocationData data;
-    }
-
-    /**
-     * Represents data of a Kroger location.
-     */
-    private static class LocationData {
         String locationId;
         String name;
     }
@@ -140,15 +136,30 @@ public class ApiApp extends Application {
      * Represents a product from Kroger.
      */
     private static class Product {
-        ProductData data;
+        String description;
+        Items[] items;
+        ImageUrl[] images;
     }
 
     /**
-     * Represents data of a product.
+     * Represents a product's images.
      */
-    private static class ProductData {
-        String description;
-        String price;
+    private static class ImageUrl {
+        String url;
+    }
+
+    /**
+     * Represents a product's price.
+     */
+    private static class Items {
+        Price price;
+    }
+
+    /**
+     * Represents a product's price.
+     */
+    private static class Price {
+        Double regular;
     }
 
     String token;
@@ -197,7 +208,7 @@ public class ApiApp extends Application {
     ImageView recipeImage;
     ScrollPane recipeScroll;
     VBox recipeScrollPane;
-    String[] ingrNameList;
+    String[][] ingrNameList;
     Hyperlink[] ingrList;
     TextFlow instrFlow;
 
@@ -212,6 +223,7 @@ public class ApiApp extends Application {
     ImageView[] ingrImages;
     TextFlow[] ingrNames;
     TextFlow[] ingrPrices;
+    String currIngr;
 
     /**
      * Constructs an {@code ApiApp} object. This default (i.e., no argument)
@@ -220,7 +232,7 @@ public class ApiApp extends Application {
     public ApiApp() {
         token = null;
         locName = "Kroger Landen";
-        locId = "01400376"
+        locId = "01400376";
 
         stage = null;
 
@@ -248,8 +260,8 @@ public class ApiApp extends Application {
         setLocTitle = new Label("Set Your Location");
         setLocPane = new HBox(4);
         setLocLabel = new Label("Zip Code:");
-        cityField = new TextField("30609");
-        city = "30609";
+        zipField = new TextField("30609");
+        zip = "30609";
         setButton = new Button("Set Zip Code");
 
         recipeRoot = new VBox();
@@ -263,7 +275,7 @@ public class ApiApp extends Application {
         recipeImage = new ImageView();
         recipeScrollPane = new VBox();
         recipeScroll = new ScrollPane(recipeScrollPane);
-        ingrNameList = new String[20];
+        ingrNameList = new String[20][20];
         ingrList = new Hyperlink[20]; //should be variable?
         instrFlow = new TextFlow();
 
@@ -278,11 +290,13 @@ public class ApiApp extends Application {
         ingrImages = new ImageView[10];
         ingrNames = new TextFlow[10];
         ingrPrices = new TextFlow[10];
+        currIngr = "Chicken";
     } // ApiApp
 
     /** {@inheritDoc} */
     @Override
     public void init() {
+        retrieveToken();
         initStart();
         initSetLoc();
         initRecipe();
@@ -321,7 +335,9 @@ public class ApiApp extends Application {
      * Initializes the start scene.
      */
     public void initStart() {
-        retrieveToken();
+        getNearestKroger();
+        locName = krogerLoc.name;
+        locId = krogerLoc.locationId;
         HBox.setHgrow(this.searchField, Priority.ALWAYS);
         progressBar.setMaxWidth(Double.MAX_VALUE);
         progressPane.setAlignment(Pos.CENTER_RIGHT);
@@ -339,21 +355,7 @@ public class ApiApp extends Application {
             descArray[i] = new TextFlow();
             bpArray[i] = new BorderPane();
             recipeButton[i] = new Button("View\nRecipe");
-            int temp = i;
-            EventHandler<ActionEvent> recipeHandler = (ActionEvent e) -> {
-                Text t1 = new Text("Recipe for " + recipeName);
-                recipeFlow.getChildren().clear();
-                recipeFlow.getChildren().add(t1);
-                for (int j = 0; j < ingrList.length; j++) {
-                    ingrNameList[j] = "Chicken";
-                    ingrList[j].setText(ingrNameList[j]);
-                }
-                recipeImage.setImage(imageArray[temp]);
-                instrFlow.getChildren().clear();
-                instrFlow.getChildren().add(new Text(""));
-                stage.setScene(recipeScene);
-            };
-            recipeButton[i].setOnAction(recipeHandler);
+            recipeButton[i].setOnAction(initButton(i));
             bpArray[i].setLeft(ivArray[i]);
             bpArray[i].setCenter(descArray[i]);
             bpArray[i].setRight(recipeButton[i]);
@@ -392,7 +394,7 @@ public class ApiApp extends Application {
             zip = zipField.getText();
             getNearestKroger();
             locName = krogerLoc.name;
-            locId = krogerLoc.id;
+            locId = krogerLoc.locationId;
         };
         setLocBack.setOnAction(setLocBackHandler);
         setButton.setOnAction(setButtonHandler);
@@ -435,12 +437,16 @@ public class ApiApp extends Application {
         ingrPane.getChildren().add(recipeImage);
 
         for (int i = 0; i < ingrList.length; i++) {
-            ingrNameList[i] = "Chicken";
+            for (int j = 0; j < ingrNameList[i].length; j++) {
+                ingrNameList[i][j] = "";
+            }
             ingrList[i] = new Hyperlink();
             ingrList[i].setWrapText(true);
             EventHandler<ActionEvent> ingrListHandler = (ActionEvent e) -> {
                 ingrFlow.getChildren().clear();
-                ingrFlow.getChildren().add(new Text("Chicken" + " at Kroger in " + locName));
+                currIngr = ingrList[0].getText();
+                ingrFlow.getChildren().add(new Text(currIngr + " at " + locName));
+                updateIngr();
                 stage.setScene(ingrScene);
             };
             ingrList[i].setOnAction(ingrListHandler);
@@ -502,7 +508,6 @@ public class ApiApp extends Application {
         runThread(() -> {
             EdamamResponse edamamResponse = retrieveEdamam();
             RecipeObj[] recipeObjArr = edamamResponse.hits;
-            System.out.println(recipeObjArr[0].recipe.label);
             int numResults = edamamResponse.count;
             Recipe[] recipeArr = new Recipe[recipeObjArr.length];
             for (int i = 0; i < recipeObjArr.length; i++) {
@@ -523,6 +528,22 @@ public class ApiApp extends Application {
                         });
                         Image image = new Image(recipeArr[i].image);
                         ivArray[i].setImage(image);
+                        Ingredient[] x = recipeArr[i].ingredients;
+                        for (int j = 0; j < 20; j++) {
+                            if (j < recipeArr[i].ingredients.length) {
+                                Double q = x[j].quantity;
+                                String m = " " + x[j].measure + " of ";
+                                String food = x[j].food;
+                                if (m.equals(" <unit> of ")) {
+                                    m = " ";
+                                }
+                                String str = String.format("%s%s%s.", q, m, food);
+                                ingrNameList[i][j] = str;
+                            } else {
+                                ingrNameList[i][j] = "";
+                            }
+                        }
+
                         Platform.runLater(() -> progressBar.setProgress(progressBar.getProgress() +
                             (1.0 / edamamResponse.hits.length)));
                     }
@@ -578,23 +599,43 @@ public class ApiApp extends Application {
     }
 
     /**
-     * Retrieves data of the search from Edamam.
+     * Uses data from Kroger to fill the Ingredient scene.
+     */
+    private void updateIngr() {
+        Product[] products = retrieveKroger();
+        //runThread(() -> {
+        for (int i = 0; i < ingrImages.length; i++) {
+            if (products[i].images[0].url != null) {
+                ingrImages[i].setImage(new Image(products[i].images[0].url));
+            }
+            ingrNames[i].getChildren().clear();
+            ingrNames[i].getChildren().add(new Text(products[i].description));
+            ingrPrices[i].getChildren().clear();
+            String price = Double.valueOf(products[i].items[0].price.regular).toString();
+            ingrPrices[i].getChildren().add(new Text(price));
+        }
+            //});
+    }
+
+    /**
+     * Retrieves data of the search from Kroger.
      *
-     * @return the data from Edamam in a GSON format
+     * @return the data from Kroger in a GSON format
      */
     private Product[] retrieveKroger() {
-        Product[] products = null;
-        try (FileInputStream configFileStream = new FileInputStream(CONFIG_PATH)) {
-            Properties config = new Properties();
-            config.load(configFileStream);
+        ProductList products = null;
+        try {
             // form URI
-            String term = URLEncoder.encode("Chicken", StandardCharsets.UTF_8);//ChangeJSKLAJSKLA
+            String term = URLEncoder.encode(currIngr, StandardCharsets.UTF_8);//ChangeJSKLAJSKLA
             String loc = URLEncoder.encode(locId, StandardCharsets.UTF_8);
-            String query = String.format("?filter.term=%s&filter.locationId=%s", term, loc);
+            String query = String.format("?filter.term=%s&filter.locationId=%s&filter.limit=%s",
+                term, loc, "10");
             URI apiUri = URI.create("https://api.kroger.com/v1/products" + query);
             // build request
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(uri))
+                .uri(apiUri)
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + token)
                 .build();
             HttpResponse<String> response = HTTP_CLIENT
                 .send(request, BodyHandlers.ofString());
@@ -602,61 +643,99 @@ public class ApiApp extends Application {
                 throw new IOException(response.toString());
             } // if
             String jsonString = response.body();
+            System.out.println(jsonString);
             products = GSON
-                .fromJson(jsonString, ProductList.class).data;
+                .fromJson(jsonString, ProductList.class);
         } catch (IOException | InterruptedException e) {
             alertError(e);
         } // try
-        return products;
+        return products.data;
     }
 
+    /**
+     * Sets the nearest Kroger to the current Kroger.
+     */
     private void getNearestKroger() {
-        String nearZip = URLEncoder.encode(zip, StandardCharsets.UTF_8);
-        String query = String.format("?filter.zipCode.near=%s&filter.limit", nearZip, "1");
-        URI apiUri = URI.create("https://api.kroger.com/v1/locations" + query);
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(apiUri)
-            .POST(BodyPublishers.ofString(post))
-            .header("Accept", "application/json")
-            .header("Authorization", "Bearer " + token)
-            .build();
+        try {
+            String nearZip = URLEncoder.encode(zip, StandardCharsets.UTF_8);
+            String query = String.format("?filter.zipCode.near=%s&filter.limit=%s", nearZip, "1");
+            URI apiUri = URI.create("https://api.kroger.com/v1/locations" + query);
             HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(uri))
-            .build();
+                .uri(apiUri)
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + token)
+                .build();
             HttpResponse<String> response = HTTP_CLIENT
-            .send(request, BodyHandlers.ofString());
+                .send(request, BodyHandlers.ofString());
             if (response.statusCode() != 200) {
                 throw new IOException(response.toString());
             } // if
             String jsonString = response.body();
-            krogerLoc = GSON
-                .fromJson(jsonString, LocationList.class).data[0];
+            LocationList locList = GSON
+                .fromJson(jsonString, LocationList.class);
+            if (locList.data.length == 0) {
+                throw new IllegalArgumentException("No Krogers found nearby.");
             }
+            krogerLoc = locList.data[0];
+        } catch (IOException | InterruptedException | IllegalArgumentException e) {
+            alertError(e);
+        } // try
     }
 
+    /**
+     * Retrieves the access token for the Kroger api.
+     */
     private void retrieveToken() {
         if (token == null) {
-            URI apiUri = URI.create("https://api.kroger.com/v1/connect/oauth2/token");
-            String requestBody = "grant_type=client_credentials&scope=product.compact";
-            String post = URLEncoder.encode(account, StandardCharsets.UTF_8);
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(apiUri)
-                .POST(BodyPublishers.ofString(post))
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .header("Authorization", "Basic " + config.getProperty("project.krogerKey")
-                .build();
+            try (FileInputStream configFileStream = new FileInputStream(CONFIG_PATH)) {
+                Properties config = new Properties();
+                config.load(configFileStream);
+                String apiUri = "https://api.kroger.com/v1/connect/oauth2/token";
+                String requestBody = "grant_type=client_credentials&scope=product.compact";
                 HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(uri))
-                .build();
+                    .uri(URI.create(apiUri))
+                    .POST(BodyPublishers.ofString(requestBody))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Authorization", "Basic " + config.getProperty("project.krogerKey"))
+                    .build();
                 HttpResponse<String> response = HTTP_CLIENT
-                .send(request, BodyHandlers.ofString());
+                    .send(request, BodyHandlers.ofString());
                 if (response.statusCode() != 200) {
+                    System.out.println(response.body());
                     throw new IOException(response.toString());
                 } // if
                 String jsonString = response.body();
                 token = GSON
-                .fromJson(jsonString, KrogerAccess.class).token;
-                }
+                    .fromJson(jsonString, KrogerAccess.class).token;
+            } catch (IOException | InterruptedException e) {
+                alertError(e);
+            } // try
+        }
+    }
+
+    /**
+     * Returns the event handler for the view recipe buttons.
+     *
+     * @param i the button to initialize
+     * @return an event handler
+     */
+    private EventHandler<ActionEvent> initButton(int i) {
+        EventHandler<ActionEvent> recipeHandler = (ActionEvent e) -> {
+            for (Node node : descArray[i].getChildren()) {
+                recipeName = ((Text)node).getText();
+            }
+            Text t1 = new Text("Recipe for " + recipeName);
+            recipeFlow.getChildren().clear();
+            recipeFlow.getChildren().add(t1);
+            for (int j = 0; j < ingrList.length; j++) {
+                ingrList[j].setText(ingrNameList[i][j]);
+            }
+            recipeImage.setImage(imageArray[i]);
+            instrFlow.getChildren().clear();
+            instrFlow.getChildren().add(new Text("Hello"));
+            stage.setScene(recipeScene);
+        };
+        return recipeHandler;
     }
 
     /**
