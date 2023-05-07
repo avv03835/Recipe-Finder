@@ -49,7 +49,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.Node;
 
 /**
- * REPLACE WITH NON-SHOUTING DESCRIPTION OF YOUR APP.
+ * This app is used to find recipes and their ingredients.
  */
 public class ApiApp extends Application {
 
@@ -284,6 +284,13 @@ public class ApiApp extends Application {
         recipeName = "Chicken";
         recipePane = new BorderPane();
         ingrPane = new VBox();
+        initVars();
+    } // ApiApp
+
+    /**
+     * Method to initialize more variables.
+     */
+    private void initVars() {
         recipeImage = new ImageView();
         recipeScrollPane = new VBox();
         recipeScroll = new ScrollPane(recipeScrollPane);
@@ -304,7 +311,7 @@ public class ApiApp extends Application {
         ingrNames = new TextFlow[10];
         ingrPrices = new TextFlow[10];
         currIngr = "Chicken";
-    } // ApiApp
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -384,6 +391,7 @@ public class ApiApp extends Application {
         };
         setLocButton.setOnAction(setLocHandler);
         EventHandler<ActionEvent> searchHandler = (ActionEvent e) -> {
+            progressBar.setProgress(0);
             getRecipes();
         };
         searchButton.setOnAction(searchHandler);
@@ -514,7 +522,6 @@ public class ApiApp extends Application {
      * Uses data from the Edamam API to fill the recipes.
      */
     private void getRecipes() {
-        progressBar.setProgress(0);
         runThread(() -> {
             EdamamResponse edamamResponse = retrieveEdamam();
             RecipeObj[] recipeObjArr = edamamResponse.hits;
