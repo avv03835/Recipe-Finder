@@ -139,13 +139,20 @@ public class ApiApp extends Application {
     private static class Product {
         String description;
         Items[] items;
-        ImageUrl[] images;
+        Images[] images;
     }
 
     /**
      * Represents a product's images.
      */
-    private static class ImageUrl {
+    private static class Images {
+        ImageURL[] sizes;
+    }
+
+    /**
+     * Represents a product's image URLs.
+     */
+    private static class ImageURL {
         String url;
     }
 
@@ -226,7 +233,8 @@ public class ApiApp extends Application {
     ScrollPane ingrScroll;
     VBox ingrScrollPane;
     BorderPane[] ingrPaneList;
-    ImageView[] ingrImages;
+    String[] ingrImages;
+    ImageView[] ingrViews;
     TextFlow[] ingrNames;
     TextFlow[] ingrPrices;
     String currIngr;
@@ -291,7 +299,8 @@ public class ApiApp extends Application {
         ingrScrollPane = new VBox();
         ingrScroll = new ScrollPane(ingrScrollPane);
         ingrPaneList = new BorderPane[10];
-        ingrImages = new ImageView[10];
+        ingrImages = new String[10];
+        ingrViews = new ImageView[10];
         ingrNames = new TextFlow[10];
         ingrPrices = new TextFlow[10];
         currIngr = "Chicken";
@@ -352,10 +361,10 @@ public class ApiApp extends Application {
         recipeImage.setFitWidth(200);
         for (int i = 0 ; i < bpArray.length; i++) {
             ivArray[i] = new ImageView();
-            ivArray[i].setFitHeight(100);
-            ivArray[i].setFitWidth(100);
             imageArray[i] = new Image("file:resources/default.png");
             ivArray[i].setImage(imageArray[i]);
+            ivArray[i].setFitHeight(100);
+            ivArray[i].setFitWidth(100);
             descArray[i] = new TextFlow();
             bpArray[i] = new BorderPane();
             recipeButton[i] = new Button("View\nRecipe");
@@ -429,10 +438,10 @@ public class ApiApp extends Application {
 
         recipeBack.setOnAction(recipeBackHandler);
 
-        recipePane.setPrefHeight(recipeScene.getHeight());
+        recipePane.setPrefHeight(recipeScene.getHeight() - 50);
         instrFlow.setMaxWidth(200);
-
         VBox.setVgrow(recipeScroll, Priority.ALWAYS);
+
 
         Region r1 = new Region();
         HBox.setHgrow(r1, Priority.ALWAYS);
@@ -478,16 +487,18 @@ public class ApiApp extends Application {
 
         for (int i = 0; i < ingrPaneList.length; i++) {
             ingrPaneList[i] = new BorderPane();
-            ingrImages[i] = new ImageView();
+            ingrViews[i] = new ImageView();
+            ingrViews[i].setFitWidth(100);
+            ingrViews[i].setFitHeight(100);
             ingrNames[i] = new TextFlow();
             ingrPrices[i] = new TextFlow();
             Image image = new Image(defaultImage);
-            ingrImages[i].setImage(image);
+            ingrViews[i].setImage(image);
             ingrNames[i].getChildren().clear();
             ingrNames[i].getChildren().add(new Text("Chicken"));
             ingrPrices[i].getChildren().clear();
             ingrPrices[i].getChildren().add(new Text("$100.00"));
-            ingrPaneList[i].setLeft(ingrImages[i]);
+            ingrPaneList[i].setLeft(ingrViews[i]);
             ingrPaneList[i].setCenter(ingrNames[i]);
             ingrPaneList[i].setRight(ingrPrices[i]);
             Separator sep = new Separator();
@@ -525,8 +536,8 @@ public class ApiApp extends Application {
                             temp.getChildren().clear();
                             temp.getChildren().add(new Text(name));
                         });
-                        Image image = new Image(recipeArr[i].image);
-                        ivArray[i].setImage(image);
+                        imageArray[i] = new Image(recipeArr[i].image);
+                        ivArray[i].setImage(imageArray[i]);
                         Ingredient[] x = recipeArr[i].ingredients;
                         String url = "Recipe URL: " + recipeArr[i].shareAs;
                         String cal = "Calories: " + recipeArr[i].calories;
@@ -610,26 +621,27 @@ public class ApiApp extends Application {
      */
     private void updateIngr() {
         Product[] products = retrieveKroger();
-        //runThread(() -> {
         for (int i = 0; i < ingrImages.length; i++) {
             if (i < products.length) {
-                if (products[i].images[0].url != null) {
-                    ingrImages[i].setImage(new Image(products[i].images[0].url));
+                if (products[i].images[0].sizes[3].url != null) {
+                    ingrImages[i] = products[i].images[0].sizes[3].url;
+                    ingrViews[i].setImage(new Image(ingrImages[i]));
                 }
                 ingrNames[i].getChildren().clear();
                 ingrNames[i].getChildren().add(new Text(products[i].description));
                 ingrPrices[i].getChildren().clear();
                 if (products[i].items[0].price != null) {
-                    String price = Double.valueOf(products[i].items[0].price.regular).toString();
-                    ingrPrices[i].getChildren().add(new Text(price));
+                    String price = Double.valueOf(products[i].items[0].price.regular)
+                        .toString();
+                    ingrPrices[i].getChildren().add(new Text("$" + price));
                 }
             } else {
-                ingrImages[i].setImage(new Image(defaultImage));
+                ingrViews[i].setImage(new Image(defaultImage));
                 ingrNames[i].getChildren().clear();
                 ingrPrices[i].getChildren().clear();
             }
         }
-            //});
+
     }
 
     /**
@@ -658,7 +670,6 @@ public class ApiApp extends Application {
                 throw new IOException(response.toString());
             } // if
             String jsonString = response.body();
-            //System.out.println(jsonString);
             products = GSON
                 .fromJson(jsonString, ProductList.class);
         } catch (IOException | InterruptedException e) {
@@ -774,6 +785,7 @@ public class ApiApp extends Application {
         };
         return ingrListHandler;
     }
+
 
     /**
      * Show a modal alert based on {@code cause}.
