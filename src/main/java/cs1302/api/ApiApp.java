@@ -90,6 +90,7 @@ public class ApiApp extends Application {
         String label;
         String image;
         Ingredient[] ingredients;
+        String shareAs;
         double calories;
         double totalTime;
     }
@@ -169,6 +170,8 @@ public class ApiApp extends Application {
     String[][] foodArr;
     String[] foodArr2;
 
+    private final String defaultImage = "file:resources/default.png";
+
     Stage stage;
 
     Scene startScene;
@@ -212,6 +215,7 @@ public class ApiApp extends Application {
     VBox recipeScrollPane;
     String[][] ingrNameList;
     Hyperlink[] ingrList;
+    String[] instrText;
     TextFlow instrFlow;
 
     Scene ingrScene;
@@ -237,9 +241,7 @@ public class ApiApp extends Application {
         locId = "01400376";
         foodArr = new String[20][20];
         foodArr2 = new String[20];
-
         stage = null;
-
         startRoot = new VBox();
         startScene = new Scene(startRoot, 800, 600);
         searchPane = new HBox(4);
@@ -256,7 +258,6 @@ public class ApiApp extends Application {
         progressPane = new HBox(4);
         progressBar = new ProgressBar();
         setLocButton = new Button("Set Location");
-
         setLocRoot = new VBox();
         setLocScene = new Scene(setLocRoot, 800, 600);
         setLocBackPane = new HBox(4);
@@ -267,7 +268,6 @@ public class ApiApp extends Application {
         zipField = new TextField("30609");
         zip = "30609";
         setButton = new Button("Set Zip Code");
-
         recipeRoot = new VBox();
         recipeScene = new Scene(recipeRoot, 800, 600);
         recipeBackPane = new HBox(4);
@@ -280,9 +280,9 @@ public class ApiApp extends Application {
         recipeScrollPane = new VBox();
         recipeScroll = new ScrollPane(recipeScrollPane);
         ingrNameList = new String[20][20];
-        ingrList = new Hyperlink[20]; //should be variable?
+        ingrList = new Hyperlink[20];
+        instrText = new String[20];
         instrFlow = new TextFlow();
-
         ingrRoot = new VBox();
         ingrScene = new Scene(ingrRoot, 800, 600);
         ingrBackPane = new HBox();
@@ -360,6 +360,7 @@ public class ApiApp extends Application {
             bpArray[i] = new BorderPane();
             recipeButton[i] = new Button("View\nRecipe");
             recipeButton[i].setOnAction(initRecipeButton(i));
+            recipeButton[i].setDisable(true);
             bpArray[i].setLeft(ivArray[i]);
             bpArray[i].setCenter(descArray[i]);
             bpArray[i].setRight(recipeButton[i]);
@@ -440,7 +441,7 @@ public class ApiApp extends Application {
 
         ingrPane.getChildren().add(recipeImage);
 
-        for (int i = 0; i < ingrList.length; i++) {
+        for (int i = 0; i < ingrNameList.length; i++) {
             for (int j = 0; j < ingrNameList[i].length; j++) {
                 ingrNameList[i][j] = "";
             }
@@ -480,7 +481,7 @@ public class ApiApp extends Application {
             ingrImages[i] = new ImageView();
             ingrNames[i] = new TextFlow();
             ingrPrices[i] = new TextFlow();
-            Image image = new Image("file:resources/default.png");
+            Image image = new Image(defaultImage);
             ingrImages[i].setImage(image);
             ingrNames[i].getChildren().clear();
             ingrNames[i].getChildren().add(new Text("Chicken"));
@@ -506,18 +507,18 @@ public class ApiApp extends Application {
         runThread(() -> {
             EdamamResponse edamamResponse = retrieveEdamam();
             RecipeObj[] recipeObjArr = edamamResponse.hits;
-            int numResults = edamamResponse.count;
             Recipe[] recipeArr = new Recipe[recipeObjArr.length];
             for (int i = 0; i < recipeObjArr.length; i++) {
                 recipeArr[i] = recipeObjArr[i].recipe;
             }
             try {
-                if (numResults < 20) {
-                    String exceptionText = numResults + " distinct results found, " +
+                if (edamamResponse.count < 20) {
+                    String exceptionText = edamamResponse.count + " distinct results found, " +
                         "but 20 or more are needed.";
                     throw new IllegalArgumentException(exceptionText);
                 } else {
                     for (int i = 0; i < recipeArr.length; i++) {
+                        recipeButton[i].setDisable(false);
                         TextFlow temp = descArray[i];
                         String name = recipeArr[i].label;
                         Platform.runLater(() -> {
@@ -527,6 +528,10 @@ public class ApiApp extends Application {
                         Image image = new Image(recipeArr[i].image);
                         ivArray[i].setImage(image);
                         Ingredient[] x = recipeArr[i].ingredients;
+                        String url = "Recipe URL: " + recipeArr[i].shareAs;
+                        String cal = "Calories: " + recipeArr[i].calories;
+                        String time = "Time to Cook: " + recipeArr[i].totalTime + "minutes";
+                        instrText[i] = String.format("%s\n\n%s\n\n%s", url, cal, time);
                         for (int j = 0; j < 20; j++) {
                             if (j < recipeArr[i].ingredients.length) {
                                 Double q = x[j].quantity;
@@ -546,7 +551,6 @@ public class ApiApp extends Application {
                                 ingrNameList[i][j] = "";
                             }
                         }
-
                         Platform.runLater(() -> progressBar.setProgress(progressBar.getProgress() +
                             (1.0 / edamamResponse.hits.length)));
                     }
@@ -608,14 +612,22 @@ public class ApiApp extends Application {
         Product[] products = retrieveKroger();
         //runThread(() -> {
         for (int i = 0; i < ingrImages.length; i++) {
-            if (products[i].images[0].url != null) {
-                ingrImages[i].setImage(new Image(products[i].images[0].url));
+            if (i < products.length) {
+                if (products[i].images[0].url != null) {
+                    ingrImages[i].setImage(new Image(products[i].images[0].url));
+                }
+                ingrNames[i].getChildren().clear();
+                ingrNames[i].getChildren().add(new Text(products[i].description));
+                ingrPrices[i].getChildren().clear();
+                if (products[i].items[0].price != null) {
+                    String price = Double.valueOf(products[i].items[0].price.regular).toString();
+                    ingrPrices[i].getChildren().add(new Text(price));
+                }
+            } else {
+                ingrImages[i].setImage(new Image(defaultImage));
+                ingrNames[i].getChildren().clear();
+                ingrPrices[i].getChildren().clear();
             }
-            ingrNames[i].getChildren().clear();
-            ingrNames[i].getChildren().add(new Text(products[i].description));
-            ingrPrices[i].getChildren().clear();
-            String price = Double.valueOf(products[i].items[0].price.regular).toString();
-            ingrPrices[i].getChildren().add(new Text(price));
         }
             //});
     }
@@ -646,7 +658,7 @@ public class ApiApp extends Application {
                 throw new IOException(response.toString());
             } // if
             String jsonString = response.body();
-            System.out.println(jsonString);
+            //System.out.println(jsonString);
             products = GSON
                 .fromJson(jsonString, ProductList.class);
         } catch (IOException | InterruptedException e) {
@@ -733,10 +745,14 @@ public class ApiApp extends Application {
             for (int j = 0; j < ingrList.length; j++) {
                 ingrList[j].setText(ingrNameList[i][j]);
                 foodArr2[j] = foodArr[i][j];
+                ingrList[j].setDisable(false);
+                if (ingrList[j].getText().equals("")) {
+                    ingrList[j].setDisable(true);
+                }
             }
             recipeImage.setImage(imageArray[i]);
             instrFlow.getChildren().clear();
-            instrFlow.getChildren().add(new Text("Hello"));
+            instrFlow.getChildren().add(new Text(instrText[i]));
             stage.setScene(recipeScene);
         };
         return recipeHandler;
